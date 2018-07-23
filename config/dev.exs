@@ -11,8 +11,14 @@ config :genstage_importer, GenstageImporterWeb.Endpoint,
   debug_errors: true,
   code_reloader: true,
   check_origin: false,
-  watchers: [node: ["node_modules/brunch/bin/brunch", "watch", "--stdin",
-                    cd: Path.expand("../assets", __DIR__)]]
+  watchers: [
+    node: [
+      "node_modules/brunch/bin/brunch",
+      "watch",
+      "--stdin",
+      cd: Path.expand("../assets", __DIR__)
+    ]
+  ]
 
 # ## SSL Support
 #
@@ -55,4 +61,5 @@ config :genstage_importer, GenstageImporter.Repo,
   password: "postgres",
   database: "genstage_importer_dev",
   hostname: "localhost",
+  port: "15432",
   pool_size: 10

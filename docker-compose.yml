@@ -2,10 +2,6 @@ version: '3.4'
 
 services:
   db:
-    image: postgres:10.3
-    env_file:
-      - ./compose/postgres.env
-    volumes:
-      - "/var/lib/postgresql"
+    image: postgres:10.1
     ports:
-      - 15432:5432
+      - '15432:5432'
