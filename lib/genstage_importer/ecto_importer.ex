@@ -16,7 +16,7 @@ defmodule GenstageImporter.EctoImporter do
 
   defp split_in_batches(input_flow) do
     input_flow
-    |> Flow.partition(window: FlowWindow.count(10_000), stages: 1)
+    |> Flow.partition(window: FlowWindow.count(1_000), stages: 4)
     |> Flow.reduce(fn -> [] end, fn item, batch ->
       [item | batch]
     end)
@@ -29,10 +29,10 @@ defmodule GenstageImporter.EctoImporter do
         schema,
         add_timestamps(items),
         on_conflict: :replace_all,
-        conflict_target: :import_id
+        conflict_target: :external_id
       )
 
-      Enum.map(items, & &1.import_id)
+      Enum.map(items, & &1.external_id)
     end)
     |> Flow.emit(:state)
     |> Enum.to_list()
@@ -41,7 +41,7 @@ defmodule GenstageImporter.EctoImporter do
   end
 
   defp delete(imported_ids, schema) do
-    query = from(p in schema, select: p.import_id)
+    query = from(p in schema, select: p.external_id)
 
     existing_ids = query |> Repo.all() |> MapSet.new()
 
@@ -53,7 +53,7 @@ defmodule GenstageImporter.EctoImporter do
       delete_query =
         from(
           p in schema,
-          where: p.import_id in ^ids
+          where: p.external_id in ^ids
         )
 
       Repo.delete_all(delete_query)

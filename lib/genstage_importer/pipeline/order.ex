@@ -12,7 +12,7 @@ defmodule GenstageImporter.Pipeline.Order do
       orders_path()
       |> File.stream!(read_ahead: 100_000)
       |> CSV.decode!(separator: ?|, headers: true)
-      |> Flow.from_enumerable(max_demand: 10_000)
+      |> Flow.from_enumerable()
       |> Flow.filter(&valid/1)
       |> Flow.map(fn row ->
         %{
@@ -23,7 +23,7 @@ defmodule GenstageImporter.Pipeline.Order do
           pending: pending(row)
         }
       end)
-      |> Flow.partition(key: {:key, :order_number}, stages: 4, max_demand: 2500)
+      |> Flow.partition(key: {:key, :order_number}, stages: 4)
       |> Flow.reduce(fn -> :ets.new(:orders, []) end, fn row, table ->
         order_number = row[:order_number]
 
@@ -52,7 +52,25 @@ defmodule GenstageImporter.Pipeline.Order do
       |> Enum.each(fn table ->
         :ets.foldl(
           fn {_, product_number, ordered_pieces, shipped_pieces, pending}, _ ->
-            :ets.insert(products, {product_number, pending, ordered_pieces - shipped_pieces})
+            {current_pending, current_pending_pieces} =
+              if :ets.member(products, product_number) do
+                [{_key, el2, el3}] = :ets.lookup(products, product_number)
+                {el2, el3}
+              else
+                {false, 0}
+              end
+
+            new_pending_pieces =
+              if pending do
+                current_pending_pieces + (ordered_pieces - shipped_pieces)
+              else
+                current_pending_pieces
+              end
+
+            :ets.insert(
+              products,
+              {product_number, current_pending || pending, new_pending_pieces}
+            )
           end,
           %{},
           table
