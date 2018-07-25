@@ -2,7 +2,7 @@ defmodule GenstageImporter.Pipeline.Order do
   @moduledoc """
   Order preprocessing pipeline
   """
-  alias GenstageImporter.Parser
+  alias GenstageImporter.{ETS, Parser}
 
   def import() do
     products = :ets.new(:parts_order_status, [])
@@ -27,21 +27,16 @@ defmodule GenstageImporter.Pipeline.Order do
       |> Flow.reduce(fn -> :ets.new(:orders, []) end, fn row, table ->
         order_number = row[:order_number]
 
-        {shipped_pieces, pending} =
-          if :ets.member(table, order_number) do
-            [{_key, _el1, _el2, el3, el4}] = :ets.lookup(table, order_number)
-            {el3, el4}
-          else
-            {0, false}
-          end
+        {_, _, shipped_pieces, pending} = ETS.fetch_order(table, order_number)
 
-        :ets.insert(
+        ETS.insert_order(
           table,
-          {order_number, row[:product_number], row[:ordered_pieces],
-           shipped_pieces + row[:shipped_pieces], pending || row[:pending]}
+          order_number,
+          row[:product_number],
+          row[:ordered_pieces],
+          shipped_pieces + row[:shipped_pieces],
+          pending || row[:pending]
         )
-
-        table
       end)
       |> Flow.map_state(fn ets ->
         :ets.give_away(ets, pid, [])
@@ -50,30 +45,23 @@ defmodule GenstageImporter.Pipeline.Order do
       |> Flow.emit(:state)
       |> Enum.to_list()
       |> Enum.each(fn table ->
-        :ets.foldl(
+        ETS.each_order(
+          table,
           fn {_, product_number, ordered_pieces, shipped_pieces, pending}, _ ->
-            {current_pending, current_pending_pieces} =
-              if :ets.member(products, product_number) do
-                [{_key, el2, el3}] = :ets.lookup(products, product_number)
-                {el2, el3}
-              else
-                {false, 0}
-              end
+            {current_pending, current_pending_pieces, _} =
+              ETS.fetch_product(products, product_number)
 
-            new_pending_pieces =
-              if pending do
-                current_pending_pieces + (ordered_pieces - shipped_pieces)
-              else
-                current_pending_pieces
-              end
-
-            :ets.insert(
+            ETS.insert_product(
               products,
-              {product_number, current_pending || pending, new_pending_pieces}
+              product_number,
+              current_pending || pending,
+              calculate_pending_pieces(
+                current_pending_pieces,
+                ordered_pieces - shipped_pieces,
+                pending
+              )
             )
-          end,
-          %{},
-          table
+          end
         )
 
         :ets.delete(table)
@@ -86,6 +74,9 @@ defmodule GenstageImporter.Pipeline.Order do
         reraise(ex, System.stacktrace())
     end
   end
+
+  defp calculate_pending_pieces(current_val, diff, true), do: current_val + diff
+  defp calculate_pending_pieces(current_val, diff, false), do: current_val
 
   defp valid(row) do
     row["LINE_STATUS"] != "Closed" || row["BILL_OF_LADING"] != ""

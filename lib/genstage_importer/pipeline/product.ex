@@ -6,6 +6,7 @@ defmodule GenstageImporter.Pipeline.Product do
   require Logger
 
   alias GenstageImporter.EctoImporter
+  alias GenstageImporter.ETS
   alias GenstageImporter.Parser
   alias GenstageImporter.Product
   alias GenstageImporter.Pipeline.Order
@@ -35,13 +36,7 @@ defmodule GenstageImporter.Pipeline.Product do
   defp transform(row, table_ref) do
     product_number = row["PRODUCT_NUMBER"]
 
-    {pending, pending_pieces, orders_present} =
-      if :ets.member(table_ref, product_number) do
-        [{_key, el2, el3}] = :ets.lookup(table_ref, product_number)
-        {el2, el3, true}
-      else
-        {false, 0, false}
-      end
+    {pending, pending_pieces, orders_present} = ETS.fetch_product(table_ref, product_number)
 
     price = Parser.parse_decimal(row["PRICE"])
 

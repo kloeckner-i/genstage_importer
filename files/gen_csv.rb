@@ -8,7 +8,7 @@ products = []
 
 File.open('./files/products.csv', 'w') do |f|
   f.write(PRODUCT_SUMMARY_HEADER)
-  400_000.times do |i|
+  500_000.times do |i|
     product_number = "product-#{i}"
     f.write(
       PRODUCT_SUMMARY_ROW
