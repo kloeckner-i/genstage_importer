@@ -1,6 +1,6 @@
 defmodule GenstageImporter.Pipeline.Product do
   @moduledoc """
-  Part import pipeline
+  Product import pipeline
   """
 
   require Logger
@@ -13,12 +13,14 @@ defmodule GenstageImporter.Pipeline.Product do
 
   def import do
     time_in_millis = :os.system_time(:millisecond)
+    # preprocess orders, get a reference to ETS table
     table_ref = Order.import()
     Logger.info("Preprocessing done in #{:os.system_time(:millisecond) - time_in_millis}ms")
 
     try do
       time_in_millis = :os.system_time(:millisecond)
 
+      # here the straightforward flow
       products_path()
       |> File.stream!(read_ahead: 100_000)
       |> CSV.decode!(separator: ?|, headers: true)
@@ -33,6 +35,7 @@ defmodule GenstageImporter.Pipeline.Product do
     end
   end
 
+  # merge CSV values with precomputed orders data
   defp transform(row, table_ref) do
     product_number = row["PRODUCT_NUMBER"]
 

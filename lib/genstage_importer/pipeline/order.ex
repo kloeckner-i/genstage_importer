@@ -5,15 +5,20 @@ defmodule GenstageImporter.Pipeline.Order do
   alias GenstageImporter.{ETS, Parser}
 
   def import() do
-    products = :ets.new(:parts_order_status, [])
+    # ETS table that stores the end result
+    products = :ets.new(:products_order_status, [])
+    # PID of the current process is needed for
     pid = self()
 
     try do
       orders_path()
       |> File.stream!(read_ahead: 100_000)
       |> CSV.decode!(separator: ?|, headers: true)
+      # initial flow is created from file input stream
       |> Flow.from_enumerable()
+      # we immediately filter out rows to be ignored
       |> Flow.filter(&valid/1)
+      # as early as possible transform original map to a smaller one to save memory
       |> Flow.map(fn row ->
         %{
           order_number: row["ORDER_NUMBER"],
@@ -23,7 +28,11 @@ defmodule GenstageImporter.Pipeline.Order do
           pending: pending(row)
         }
       end)
+      # here input flow is partitioned and sent to 4 concurrent stages
+      # also, we ensure that events with the same order_number go to the same stage
       |> Flow.partition(key: {:key, :order_number}, stages: 4)
+      # this step reduces incoming event to an ETS table with aggregated information
+      # about each order
       |> Flow.reduce(fn -> :ets.new(:orders, []) end, fn row, table ->
         order_number = row[:order_number]
 
@@ -38,30 +47,19 @@ defmodule GenstageImporter.Pipeline.Order do
           pending || row[:pending]
         )
       end)
+      # after reduce process is done, next stage is triggered
+      # here we give away ETS table ownership to the parent process, flow is done
+      # at this stage
       |> Flow.on_trigger(fn ets ->
         :ets.give_away(ets, pid, [])
         {[ets], ets}
       end)
+      # for each result, we iterate over orders table and calculate aggregated values for products
       |> Enum.to_list()
       |> Enum.each(fn table ->
-        ETS.each_order(
-          table,
-          fn {_, product_number, ordered_pieces, shipped_pieces, pending}, _ ->
-            {current_pending, current_pending_pieces, _} =
-              ETS.fetch_product(products, product_number)
-
-            ETS.insert_product(
-              products,
-              product_number,
-              current_pending || pending,
-              calculate_pending_pieces(
-                current_pending_pieces,
-                ordered_pieces - shipped_pieces,
-                pending
-              )
-            )
-          end
-        )
+        ETS.each_order(table, fn order_tuple, _ ->
+          process_order(products, order_tuple)
+        end)
 
         :ets.delete(table)
       end)
@@ -74,8 +72,23 @@ defmodule GenstageImporter.Pipeline.Order do
     end
   end
 
+  defp process_order(table, {_, product_number, ordered_pieces, shipped_pieces, pending}) do
+    {current_pending, current_pending_pieces, _} = ETS.fetch_product(table, product_number)
+
+    ETS.insert_product(
+      table,
+      product_number,
+      current_pending || pending,
+      calculate_pending_pieces(
+        current_pending_pieces,
+        ordered_pieces - shipped_pieces,
+        pending
+      )
+    )
+  end
+
   defp calculate_pending_pieces(current_val, diff, true), do: current_val + diff
-  defp calculate_pending_pieces(current_val, diff, false), do: current_val
+  defp calculate_pending_pieces(current_val, _, false), do: current_val
 
   defp valid(row) do
     row["LINE_STATUS"] != "Closed" || row["BILL_OF_LADING"] != ""
