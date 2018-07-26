@@ -24,7 +24,7 @@ defmodule GenstageImporter.EctoImporter do
 
   defp upsert(input_flow, schema) do
     input_flow
-    |> Flow.map_state(fn items ->
+    |> Flow.on_trigger(fn items ->
       Repo.insert_all(
         schema,
         add_timestamps(items),
@@ -32,11 +32,9 @@ defmodule GenstageImporter.EctoImporter do
         conflict_target: :external_id
       )
 
-      Enum.map(items, & &1.external_id)
+      {Enum.map(items, & &1.external_id), items}
     end)
-    |> Flow.emit(:state)
     |> Enum.to_list()
-    |> Enum.reduce(&++/2)
     |> MapSet.new()
   end
 

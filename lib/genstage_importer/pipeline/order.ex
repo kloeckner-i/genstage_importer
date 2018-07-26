@@ -38,11 +38,10 @@ defmodule GenstageImporter.Pipeline.Order do
           pending || row[:pending]
         )
       end)
-      |> Flow.map_state(fn ets ->
+      |> Flow.on_trigger(fn ets ->
         :ets.give_away(ets, pid, [])
-        ets
+        {[ets], ets}
       end)
-      |> Flow.emit(:state)
       |> Enum.to_list()
       |> Enum.each(fn table ->
         ETS.each_order(

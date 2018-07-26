@@ -45,6 +45,7 @@ defmodule GenstageImporter.Pipeline.Product do
       product_number: product_number,
       description: row["SHORT_DESC"],
       price: price,
+      commodity: row["COMMODITY"],
       pending_orders_present: pending,
       orders_present: orders_present,
       pending_pieces: pending_pieces
