@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 
+PRODUCTS_NUMBER = 1_000
+
 PRODUCT_SUMMARY_HEADER = "PRODUCT_NUMBER|PRICE|COMMODITY|SHORT_DESC\n".freeze
 PRODUCT_SUMMARY_ROW = "$product_number$|$price$|$commodity$|$description$\n".freeze
 
@@ -8,7 +10,7 @@ products = []
 
 File.open('./files/products.csv', 'w') do |f|
   f.write(PRODUCT_SUMMARY_HEADER)
-  500_000.times do |i|
+  PRODUCTS_NUMBER.times do |i|
     product_number = "product-#{i}"
     f.write(
       PRODUCT_SUMMARY_ROW

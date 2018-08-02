@@ -10,15 +10,7 @@ config :genstage_importer, GenstageImporterWeb.Endpoint,
   http: [port: 4000],
   debug_errors: true,
   code_reloader: true,
-  check_origin: false,
-  watchers: [
-    node: [
-      "node_modules/brunch/bin/brunch",
-      "watch",
-      "--stdin",
-      cd: Path.expand("../assets", __DIR__)
-    ]
-  ]
+  check_origin: false
 
 # ## SSL Support
 #
@@ -38,14 +30,9 @@ config :genstage_importer, GenstageImporterWeb.Endpoint,
 
 # Watch static and templates for browser reloading.
 config :genstage_importer, GenstageImporterWeb.Endpoint,
-  live_reload: [
-    patterns: [
-      ~r{priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$},
-      ~r{priv/gettext/.*(po)$},
-      ~r{lib/genstage_importer_web/views/.*(ex)$},
-      ~r{lib/genstage_importer_web/templates/.*(eex)$}
-    ]
-  ]
+  code_reloader: true,
+  check_origin: false,
+  watchers: []
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :console, format: "[$level] $message\n", level: :info
@@ -60,6 +47,6 @@ config :genstage_importer, GenstageImporter.Repo,
   username: "postgres",
   password: "postgres",
   database: "genstage_importer_dev",
-  hostname: "localhost",
-  port: "15432",
+  hostname: System.get_env("POSTGRES_HOST") || "localhost",
+  port: "5432",
   pool_size: 10

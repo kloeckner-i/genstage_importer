@@ -5,3 +5,23 @@ services:
     image: postgres:10.1
     ports:
       - '15432:5432'
+  app:
+    build:
+      context: .
+    command: mix do deps.get, phx.server
+    volumes:
+      - .:/app
+      - build:/mix/build
+      - deps:/mix/deps
+    ports:
+      - 4000:4000
+    depends_on:
+      - db
+    environment:
+      MIX_BUILD_PATH: /mix/build
+      MIX_DEPS_PATH: /mix/deps
+      POSTGRES_HOST: db
+
+volumes:
+  build: {}
+  deps: {}

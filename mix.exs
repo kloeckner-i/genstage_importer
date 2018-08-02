@@ -8,6 +8,8 @@ defmodule GenstageImporter.Mixfile do
       elixir: "~> 1.4",
       elixirc_paths: elixirc_paths(Mix.env()),
       compilers: [:phoenix, :gettext] ++ Mix.compilers(),
+      deps_path: System.get_env("MIX_DEPS_PATH") || "deps",
+      build_path: System.get_env("MIX_BUILD_PATH") || "_build",
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps()
